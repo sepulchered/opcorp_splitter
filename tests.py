@@ -17,12 +17,12 @@ class TestSplit2Files(unittest.TestCase):
     def test_output_not_required(self):
         splitter = OpcorpSplitter(['test_sample.xml'])
         self.assertEqual(splitter.in_file, 'test_sample.xml')
-        self.assertEqual(splitter.output, None)
+        self.assertEqual(splitter.output, 'v.0.11.3709973')
 
     def test_verbose_not_required(self):
         splitter = OpcorpSplitter(['test_sample.xml'])
         self.assertEqual(splitter.in_file, 'test_sample.xml')
-        self.assertEqual(splitter.output, None)
+        self.assertEqual(splitter.output, 'v.0.11.3709973')
         self.assertEqual(splitter.verbosity, 1)
 
     def test_ask_overwrite(self):
@@ -54,4 +54,20 @@ class TestSplit2Files(unittest.TestCase):
         with mock._patch_object(splitter, '_ask_for_overwrite', return_value=True) as mock_method:
             splitter.process()
         self.assertFalse(mock_method.called)
+
+    def test_init_calls_get_out_path(self):
+        with mock._patch_object(OpcorpSplitter, '_get_out_path', return_value='v.0.11.3709973') as mock_method:
+            splitter = OpcorpSplitter(['test_sample.xml'])
+        self.assertTrue(mock_method.called)
+
+        with mock._patch_object(OpcorpSplitter, '_get_out_path', return_value='v.0.11.3709973') as mock_method:
+            splitter = OpcorpSplitter(['test_sample.xml', '-o', 'output'])
+        self.assertFalse(mock_method.called)
+
+    def test_get_out_path(self):
+        splitter = OpcorpSplitter(['test_sample.xml'])
+        self.assertEqual(splitter._get_out_path(), 'v.0.11.3709973')
+        splitter = OpcorpSplitter(['test_sample.xml', '-o', 'output'])
+        self.assertEqual(splitter._get_out_path(), 'v.0.11.3709973')
+
 

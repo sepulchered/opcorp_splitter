@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 
 try:
@@ -10,6 +11,15 @@ except ImportError:
 class OpcorpSplitter():
     def __init__(self, args=None):  # args is for testing cli interface, patching sys.argv is tricky
         self._process_cli_args(args)
+        if self.output is None:
+            self.output = self._get_out_path()
+
+    def _get_out_path(self):
+        for ev, el in et.iterparse(self.in_file):
+            if ev == 'end':
+                if el.tag == 'annotation':
+                    return '.'.join(('v', el.get('version', '0'), el.get('revision', '0')))
+                el.clear()
 
     def _process_cli_args(self, args):
         parser = argparse.ArgumentParser(description='Split opencorpora single file into text files')
@@ -30,8 +40,7 @@ class OpcorpSplitter():
         while answer not in ['', 'y', 'n']:
             answer = input('Output folder {} already exists. Overwrite it? {[n],y}')
 
-        if not answer or answer == 'n':
-            print('Try with -o/--output option to set proper output path')
+        if answer in ['', 'n']:
             return False
         else:
             return True
@@ -39,6 +48,13 @@ class OpcorpSplitter():
     def process(self):
         if os.path.exists(self.output):
             overwrite = self._ask_for_overwrite()
+
+            if not overwrite:
+                print('Try with -o/--output option to set proper output path')
+                sys.exit(0)
+            else:
+                os.rmdir(self.output)
+                os.mkdir(self.output)
 
 if __name__ == "__main__":
     splitter = OpcorpSplitter()
