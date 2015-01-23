@@ -52,6 +52,7 @@ coverage.xml
 
 # Not related to repo output
 output
+rev3709973
 
 # Sphinx documentation
 docs/_build/
