@@ -38,8 +38,8 @@ class OpcorpSplitter():
 
         answer = None
         while answer not in ['', 'y', 'n']:
-            answer = input('Output folder {} already exists. Overwrite it? '
-                           '{[n],y}', self.output)
+            answer = input('Output folder {0} already exists. Overwrite it? '
+                           '{{[n],y}}'.format(self.output))
 
         if answer in ['', 'n']:
             return False
@@ -66,16 +66,16 @@ class OpcorpSplitter():
                 if ev == 'end':
                     if el.tag == 'text':
                         out_file_path = os.path.join(self.output,
-                                                     '{}{}'.format(el.get('id'),
+                                                     '{0}{1}'.format(el.get('id'),
                                                                    '.xml'))
                         if self.verbosity == 2:
-                            print('file {} [id={}] will be written to '
-                                  '{}'.format(el.get('name'), el.get('id'),
-                                              out_file_path))
+                            print('file {0} [id={1}] will be written to '
+                                  '{2}'.format(el.get('name'), el.get('id'),
+                                               out_file_path))
 
                         if os.path.exists(out_file_path):
                             if self.verbosity > 0:
-                                print('file {} already exists. Maybe duplicate '
+                                print('file {0} already exists. Maybe duplicate '
                                       'ids or not empty output '
                                       'location?'.format(out_file_path))
 
@@ -89,7 +89,7 @@ class OpcorpSplitter():
                                                        'annotation.json')
                         if self.verbosity == 2:
                             print('annotation file will be written to '
-                                  '{}'.format(annotation_path))
+                                  '{0}'.format(annotation_path))
                         if os.path.exists(annotation_path):
                             if self.verbosity > 0:
                                 print('annotation file already exists in '
@@ -110,4 +110,4 @@ if __name__ == "__main__":
     splitter.process()
     if splitter.time:
         end = abs(start-datetime.datetime.now())
-        print('executed in {} sec'.format(end.total_seconds()))
+        print('executed in {0} sec'.format(end.total_seconds()))
