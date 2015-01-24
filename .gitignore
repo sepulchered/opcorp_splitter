@@ -53,6 +53,7 @@ coverage.xml
 # Not related to repo output
 output
 rev3709973
+annot.opcorpora.xml
 
 # Sphinx documentation
 docs/_build/

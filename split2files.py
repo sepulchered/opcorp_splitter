@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import datetime
 import argparse
 
 try:
@@ -27,6 +28,8 @@ class OpcorpSplitter():
                             type=int, choices=[0, 1, 2], default=1)
         parser.add_argument('-e', '--encoding', default='utf-8',
                             help='encoding of output files; defaults to utf-8')
+        parser.add_argument('-t', '--time', action='store_true', default=False,
+                            help='print execution time in the end')
         parser.parse_args(namespace=self)
 
     def _ask_for_overwrite(self):  # input set for tests
@@ -36,7 +39,7 @@ class OpcorpSplitter():
         answer = None
         while answer not in ['', 'y', 'n']:
             answer = input('Output folder {} already exists. Overwrite it? '
-                           '{[n],y}')
+                           '{[n],y}', self.output)
 
         if answer in ['', 'n']:
             return False
@@ -77,7 +80,9 @@ class OpcorpSplitter():
                                       'location?'.format(out_file_path))
 
                         tt = ET.ElementTree(element=el)
-                        tt.write(out_file_path, encoding=self.encoding)
+                        tt.write(out_file_path, encoding=self.encoding,
+                                 xml_declaration=True)
+                        el.clear()
 
                     elif el.tag == 'annotation':
                         annotation_path = os.path.join(self.output,
@@ -94,11 +99,15 @@ class OpcorpSplitter():
                             json.dump({'version': el.get('version'),
                                        'revision': el.get('revision')},
                                       annotation)
-                    el.clear()
+                        el.clear()
 
         except Exception as ex:
             print(ex)
 
 if __name__ == "__main__":
+    start = datetime.datetime.now()
     splitter = OpcorpSplitter()
     splitter.process()
+    if splitter.time:
+        end = abs(start-datetime.datetime.now())
+        print('executed in {} sec'.format(end.total_seconds()))
