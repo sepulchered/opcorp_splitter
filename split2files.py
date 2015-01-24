@@ -1,44 +1,42 @@
 import os
 import sys
+import json
 import argparse
 
 try:
-    import xml.etree.cElementTree as et
+    import xml.etree.cElementTree as ET
 except ImportError:
-    import xml.etree.ElementTree as et
+    import xml.etree.ElementTree as ET
 
 
 class OpcorpSplitter():
-    def __init__(self, args=None):  # args is for testing cli interface, patching sys.argv is tricky
-        self._process_cli_args(args)
-        if self.output is None:
-            self.output = self._get_out_path()
+    def __init__(self):
+        self._process_cli_args()
 
-    def _get_out_path(self):
-        for ev, el in et.iterparse(self.in_file):
-            if ev == 'end':
-                if el.tag == 'annotation':
-                    return '.'.join(('v', el.get('version', '0'), el.get('revision', '0')))
-                el.clear()
+    def _process_cli_args(self):
+        parser = argparse.ArgumentParser(description='Split opencorpora single '
+                                                     'file into text files')
+        parser.add_argument('in_file', metavar='CORPUS_FILE',
+                            help='path to opencorpora xml file')
+        parser.add_argument('output', metavar='OUTPUT_PATH',
+                            help='path to extract files to default path will '
+                                 'be in current dir based on annotation '
+                                 'revision')
+        parser.add_argument('-v', '--verbosity',
+                            help='show more/less output; default = 1',
+                            type=int, choices=[0, 1, 2], default=1)
+        parser.add_argument('-e', '--encoding', default='utf-8',
+                            help='encoding of output files; defaults to utf-8')
+        parser.parse_args(namespace=self)
 
-    def _process_cli_args(self, args):
-        parser = argparse.ArgumentParser(description='Split opencorpora single file into text files')
-        parser.add_argument('in_file', metavar='CORPUS_FILE', help='path to opencorpora xml file')
-        parser.add_argument('-o', '--output', help='path to extract files to default path will be in current '
-                                                   'dir based on annotation revision')
-        parser.add_argument('-v', '--verbosity', help='show more/less output; default = 1', type=int, choices=[0, 1, 2], default=1)
-        if args is not None:
-            parser.parse_args(args, namespace=self)
-        else:
-            parser.parse_args(namespace=self)
-
-    def _ask_for_overwrite(self, input=input):  # input set for tests
+    def _ask_for_overwrite(self):  # input set for tests
         if not self.verbosity:  # silently overwrite if verbosity set to 0
             return True
 
         answer = None
         while answer not in ['', 'y', 'n']:
-            answer = input('Output folder {} already exists. Overwrite it? {[n],y}')
+            answer = input('Output folder {} already exists. Overwrite it? '
+                           '{[n],y}')
 
         if answer in ['', 'n']:
             return False
@@ -46,15 +44,60 @@ class OpcorpSplitter():
             return True
 
     def process(self):
+        # check if input file exists
+        if not os.path.exists(self.in_file):
+            print('Invalid input file provided')
+            sys.exit(1)
+
+        # check if output path exists
         if os.path.exists(self.output):
             overwrite = self._ask_for_overwrite()
 
             if not overwrite:
-                print('Try with -o/--output option to set proper output path')
                 sys.exit(0)
-            else:
-                os.rmdir(self.output)
-                os.mkdir(self.output)
+        else:
+            os.makedirs(self.output)
+
+        try:
+            for ev, el in ET.iterparse(self.in_file):
+                if ev == 'end':
+                    if el.tag == 'text':
+                        out_file_path = os.path.join(self.output,
+                                                     '{}{}'.format(el.get('id'),
+                                                                   '.xml'))
+                        if self.verbosity == 2:
+                            print('file {} [id={}] will be written to '
+                                  '{}'.format(el.get('name'), el.get('id'),
+                                              out_file_path))
+
+                        if os.path.exists(out_file_path):
+                            if self.verbosity > 0:
+                                print('file {} already exists. Maybe duplicate '
+                                      'ids or not empty output '
+                                      'location?'.format(out_file_path))
+
+                        tt = ET.ElementTree(element=el)
+                        tt.write(out_file_path, encoding=self.encoding)
+
+                    elif el.tag == 'annotation':
+                        annotation_path = os.path.join(self.output,
+                                                       'annotation.json')
+                        if self.verbosity == 2:
+                            print('annotation file will be written to '
+                                  '{}'.format(annotation_path))
+                        if os.path.exists(annotation_path):
+                            if self.verbosity > 0:
+                                print('annotation file already exists in '
+                                      'output location'.format(annotation_path))
+
+                        with open(annotation_path, 'w') as annotation:
+                            json.dump({'version': el.get('version'),
+                                       'revision': el.get('revision')},
+                                      annotation)
+                    el.clear()
+
+        except Exception as ex:
+            print(ex)
 
 if __name__ == "__main__":
     splitter = OpcorpSplitter()
