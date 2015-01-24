@@ -1,5 +1,6 @@
 # opcorp_splitter
 [OpenCorpora](http://opencorpora.org/) export xml file splitter
+
     usage: split2files.py [-h] [-v {0,1,2}] [-e ENCODING] [-t]
                           CORPUS_FILE OUTPUT_PATH
 
