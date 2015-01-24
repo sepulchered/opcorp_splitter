@@ -20,9 +20,7 @@ class OpcorpSplitter():
         parser.add_argument('in_file', metavar='CORPUS_FILE',
                             help='path to opencorpora xml file')
         parser.add_argument('output', metavar='OUTPUT_PATH',
-                            help='path to extract files to default path will '
-                                 'be in current dir based on annotation '
-                                 'revision')
+                            help='path to extract files to')
         parser.add_argument('-v', '--verbosity',
                             help='show more/less output; default = 1',
                             type=int, choices=[0, 1, 2], default=1)

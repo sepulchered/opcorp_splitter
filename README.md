@@ -1,6 +1,5 @@
 # opcorp_splitter
 [OpenCorpora](http://opencorpora.org/) export xml file splitter
-
     usage: split2files.py [-h] [-v {0,1,2}] [-e ENCODING] [-t]
                           CORPUS_FILE OUTPUT_PATH
 
@@ -8,8 +7,7 @@
 
     positional arguments:
       CORPUS_FILE           path to opencorpora xml file
-      OUTPUT_PATH           path to extract files to default path will be in
-                            current dir based on annotation revision
+      OUTPUT_PATH           path to extract files to
 
     optional arguments:
       -h, --help            show this help message and exit
