@@ -11,8 +11,6 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
-from memory_profiler import profile
-
 
 class OpcorpContentHandler(xml.sax.ContentHandler):
     def __init__(self, out_path, encoding):
@@ -20,7 +18,6 @@ class OpcorpContentHandler(xml.sax.ContentHandler):
         self.file = None
         self.out_path = out_path
         self.encoding = encoding
-
     def _new_file(self, fid):
         path = os.path.join(self.out_path, '{}.xml'.format(fid))
         self.file = open(path, 'wb')
@@ -80,8 +77,8 @@ class OpcorpSplitter():
                             help='encoding of output files; defaults to utf-8')
         parser.add_argument('-t', '--time', action='store_true', default=False,
                             help='print execution time in the end')
-        parser.add_argument('-p', '--parser', default='dom', choices=['dom', 'sax'],
-                            help='parser to use; default=dom')
+        parser.add_argument('-p', '--parser', default='sax', choices=['dom', 'sax'],
+                            help='parser to use; default=sax')
         parser.parse_args(namespace=self)
 
     def _ask_for_overwrite(self):  # input set for tests
@@ -98,7 +95,6 @@ class OpcorpSplitter():
         else:
             return True
 
-    @profile
     def process(self):
         # check if input file exists
         if not os.path.exists(self.in_file):
