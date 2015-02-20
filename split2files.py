@@ -6,26 +6,32 @@ import argparse
 import shutil
 import xml.sax
 
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
-
 
 class OpcorpContentHandler(xml.sax.ContentHandler):
-    def __init__(self, out_path, encoding):
+    def __init__(self, out_path, encoding, out_format):
         super().__init__()
-        self.file = None
         self.out_path = out_path
+        self.out_format = out_format
         self.encoding = encoding
-    def _new_file(self, fid):
-        path = os.path.join(self.out_path, '{}.xml'.format(fid))
-        self.file = open(path, 'wb')
-        bang_u = '<?xml version="1.0" encoding="{}"?>'.format(self.encoding)
-        self.file.write(bang_u.encode(self.encoding))
 
-    def _close_file(self):
-        self.file.close()
+        self.file = None
+        self._txt = None
+        self._txt_node = None
+        self._paragraph = None
+        self._sentence = None
+        self._token = None
+        self._variant = None
+
+    def _new_file(self, fid):
+        path = os.path.join(self.out_path, '{}.{}'.format(fid, self.out_format))
+        if self.out_format == 'xml':
+            file_modifier = 'wb'
+        else:
+            file_modifier = 'w'
+        self.file = open(path, file_modifier)
+        if self.out_format == 'xml':
+            bang_u = '<?xml version="1.0" encoding="{}"?>'.format(self.encoding)
+            self.file.write(bang_u.encode(self.encoding))
 
     def _gen_start_tag(self, name, attrs):
         attributes = ' '.join('{}="{}"'.format(k, v) for k, v in attrs.items())
@@ -36,27 +42,112 @@ class OpcorpContentHandler(xml.sax.ContentHandler):
         st_u = '</{}>'.format(name)
         return st_u.encode(self.encoding)
 
-    def startElement(self, name, attrs):
+    def _start_element_xml(self, name, attrs):
         if name == 'text':
-            fid = attrs.get('id')
-            self._new_file(fid)
             self.file.write(self._gen_start_tag(name, attrs))
         elif name != 'annotation':  # all tags that are in text
             self.file.write(self._gen_start_tag(name, attrs))
         else:  # annotation
             with open(os.path.join(self.out_path, 'annotation.json'), 'w') as annot:
                 json.dump({k: v for k, v in attrs.items()}, annot)
-            
 
-    def endElement(self, name):
+    def _start_element_json(self, name, attrs):
+        if name == 'text':
+            self._txt = {
+                'id': int(attrs.get('id')),
+                'parent': int(attrs.get('parent', 0)),
+                'name': attrs.get('name', ''),
+                'tags': [],
+                'paragraphs': []
+            }
+        elif name != 'annotation':  # all tags that are in text
+            if name == 'tag':
+                self._txt_node = 'tag'
+            elif name == 'source':
+                self._txt_node = 'source'
+            elif name == 'paragraph':
+                self._paragraph = {
+                    'id': int(attrs.get('id', 0)),
+                    'sentences': []
+                }
+            elif name == 'sentence':
+                self._sentence = {
+                    'id': int(attrs.get('id', 0)),
+                    'source': '',
+                    'tokens': []
+                }
+            elif name == 'token':
+                self._token = {
+                    'id': int(attrs.get('id', 0)),
+                    'text': attrs.get('text', ''),
+                    'variants': []
+                }
+            elif name == 'l':
+                self._variant = {
+                    'id': int(attrs.get('id', 0)),
+                    't': attrs.get('t', ''),
+                    'grammemes': []
+                }
+            elif name == 'g':
+                if attrs.get('v'):
+                    self._variant['grammemes'].append(attrs.get('v'))
+
+        else:  # annotation
+            with open(os.path.join(self.out_path, 'annotation.json'), 'w') as annot:
+                json.dump({k: v for k, v in attrs.items()}, annot)
+
+    def _end_element_json(self, name):
+        if name == 'text':
+            json.dump(self._txt, self.file)
+            self.file.close()
+            self._txt = None
+        elif name == 'tag':
+            self._txt_node = None
+        elif name == 'source':
+            self._txt_node = None
+        elif name == 'paragraph':
+            self._txt['paragraphs'].append(self._paragraph)
+            self._paragraph = None
+        elif name == 'sentence':
+            self._paragraph['sentences'].append(self._sentence)
+            self._sentence = None
+        elif name == 'token':
+            self._sentence['tokens'].append(self._token)
+        elif name == 'l':
+            self._token['variants'].append(self._variant)
+
+    def _end_element_xml(self, name):
         if name != 'annotation':
             self.file.write(self._gen_end_tag(name))
         if name == 'text':
-            self._close_file()
+            self.file.close()
+
+    def startElement(self, name, attrs):
+        if name == 'text':
+            fid = attrs.get('id')
+            self._new_file(fid)
+
+        if self.out_format == 'xml':
+            self._start_element_xml(name, attrs)
+        elif self.out_format == 'json':
+            self._start_element_json(name, attrs)
+
+    def endElement(self, name):
+        if self.out_format == 'xml':
+            self._end_element_xml(name)
+        elif self.out_format == 'json':
+            self._end_element_json(name)
 
     def characters(self, content):
         if content.strip():
-            self.file.write(content.strip().encode(self.encoding))
+            if self.out_format == 'xml':
+                self.file.write(content.strip().encode(self.encoding))
+            elif self.out_format == 'json':
+                if self._txt_node == 'tag':
+                    self._txt['tags'].append(content.strip())
+                elif self._txt_node == 'source':
+                    self._sentence['source'] = content.strip()
+
 
 
 class OpcorpSplitter():
@@ -77,8 +168,8 @@ class OpcorpSplitter():
                             help='encoding of output files; defaults to utf-8')
         parser.add_argument('-t', '--time', action='store_true', default=False,
                             help='print execution time in the end')
-        parser.add_argument('-p', '--parser', default='sax', choices=['dom', 'sax'],
-                            help='parser to use; default=sax')
+        parser.add_argument('-f', '--format', default='xml', choices=['xml', 'json'],
+                            help='output files format; default=xml')
         parser.parse_args(namespace=self)
 
     def _ask_for_overwrite(self):  # input set for tests
@@ -113,52 +204,7 @@ class OpcorpSplitter():
         else:
             os.makedirs(self.output)
 
-        try:
-            if self.parser == 'dom':
-                for ev, el in ET.iterparse(self.in_file):
-                    if ev == 'end':
-                        if el.tag == 'text':
-                            out_file_path = os.path.join(self.output,
-                                                         '{0}{1}'.format(el.get('id'),
-                                                                       '.xml'))
-                            if self.verbosity == 2:
-                                print('file {0} [id={1}] will be written to '
-                                      '{2}'.format(el.get('name'), el.get('id'),
-                                                   out_file_path))
-
-                            if os.path.exists(out_file_path):
-                                if self.verbosity > 0:
-                                    print('file {0} already exists. Maybe duplicate '
-                                          'ids or not empty output '
-                                          'location?'.format(out_file_path))
-
-                            tt = ET.ElementTree(element=el)
-                            tt.write(out_file_path, encoding=self.encoding,
-                                     xml_declaration=True)
-                            tt = None
-                            el.clear()
-
-                        elif el.tag == 'annotation':
-                            annotation_path = os.path.join(self.output,
-                                                           'annotation.json')
-                            if self.verbosity == 2:
-                                print('annotation file will be written to '
-                                      '{0}'.format(annotation_path))
-                            if os.path.exists(annotation_path):
-                                if self.verbosity > 0:
-                                    print('annotation file already exists in '
-                                          'output location'.format(annotation_path))
-
-                            with open(annotation_path, 'w') as annotation:
-                                json.dump({'version': el.get('version'),
-                                           'revision': el.get('revision')},
-                                          annotation)
-                            el.clear()
-            elif self.parser == 'sax':
-                parser = xml.sax.parse(self.in_file, OpcorpContentHandler(self.output, self.encoding))
-
-        except Exception as ex:
-            print(ex)
+        parser = xml.sax.parse(self.in_file, OpcorpContentHandler(self.output, self.encoding, self.format))
 
 if __name__ == "__main__":
     start = datetime.datetime.now()
